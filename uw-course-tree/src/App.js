@@ -14,56 +14,66 @@ function getRank(code) {
 
 
 function parseElements(courses) {
-  // Gather all course codes (real and referenced)
-  const courseCodes = new Set(courses.map((c) => c.code.toLowerCase()));
+  // Only consider CS courses (real and referenced)
+  const isCS = code => code.toUpperCase().startsWith("CS");
+  const courseCodes = new Set(
+    courses.map((c) => c.code.toLowerCase()).filter(isCS)
+  );
   const edgeCodes = new Set();
   const edges = [];
 
   courses.forEach((course) => {
     const thisCode = course.code.toLowerCase();
+    if (!isCS(thisCode)) return; // Skip non-CS courses
 
-    // Prerequisites
+    // Prerequisites (only CS)
     const prereqCodes =
-      (course.prereqs || "").match(/\b[A-Z]{2,4}\d{3}[A-Z]?\b/g) || [];
+      (course.prereqs || "").match(/\bCS\d{3}[A-Z]?\b/gi) || [];
     prereqCodes.forEach((prereq) => {
-      edges.push({
-        data: {
-          source: prereq.toLowerCase(),
-          target: thisCode,
-          type: "prereq",
-        },
-      });
-      edgeCodes.add(prereq.toLowerCase());
+      if (isCS(prereq)) {
+        edges.push({
+          data: {
+            source: prereq.toLowerCase(),
+            target: thisCode,
+            type: "prereq",
+          },
+        });
+        edgeCodes.add(prereq.toLowerCase());
+      }
     });
 
-    // Postrequisites
+    // Postrequisites (only CS)
     (course.postrequisites || []).forEach((pr) => {
-      if (pr.postrequisite && pr.postrequisite.code) {
+      const code = pr.postrequisite?.code?.toLowerCase() || "";
+      if (isCS(code)) {
         edges.push({
           data: {
             source: thisCode,
-            target: pr.postrequisite.code.toLowerCase(),
+            target: code,
             type: "postreq",
           },
         });
-        edgeCodes.add(pr.postrequisite.code.toLowerCase());
+        edgeCodes.add(code);
       }
     });
   });
 
-  // Add nodes for all course codes (real and referenced)
+  // Add only CS nodes (real and referenced)
   const allCodes = new Set([...courseCodes, ...edgeCodes]);
-  const nodes = Array.from(allCodes).map((code) => ({
-    data: { 
-      id: code, 
-      label: code.toUpperCase(), 
-      rank: getRank(code.toUpperCase()) 
-    },
-    classes: courseCodes.has(code) ? "real" : "phantom",
-  }));
+  const nodes = Array.from(allCodes)
+    .filter(isCS)
+    .map((code) => ({
+      data: {
+        id: code,
+        label: code.toUpperCase(),
+        rank: getRank(code.toUpperCase()),
+      },
+      classes: courseCodes.has(code) ? "real" : "phantom",
+    }));
 
   return [...nodes, ...edges];
 }
+
 
 function App() {
   const [elements, setElements] = useState([]);
@@ -98,12 +108,10 @@ function App() {
         style={{ width: "100%", height: "100%" }}
         layout={{
           name: "dagre",
-          rankDir: "BT", // Bottom to Top
-          nodeSep: 150,   // Increase horizontal space between nodes
-          rankSep: 200,   // Increase vertical space between ranks
-          edgeSep: 20,
-          marginx: 60,
-          marginy: 60,
+          rankDir: "BT",
+          nodeSep: 120,
+          rankSep: 220,
+          padding: 250,
         }}
         
         
