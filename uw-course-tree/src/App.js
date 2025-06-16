@@ -86,7 +86,7 @@ function App() {
           if (!prereqStr) return [];
           return prereqStr.match(/\b[A-Z]{2,4}\d{3}[A-Z]?\b/gi) || [];
         }
-  
+
         const processedCourses = realCourseData.map(course => ({
           code: (course.code || "").toUpperCase(),
           prereqs: extractCodes(course.prereqs || "").join(" "),
@@ -94,27 +94,31 @@ function App() {
             postrequisite: { code: (pr.code || "").toUpperCase() }
           }))
         }));
-  
+
         setElements(parseElements(processedCourses));
       });
   }, []);
-  
-  
+
+
 
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
       <CytoscapeComponent
+        key={elements.length} // Ensures remount & layout rerun on reload
         elements={elements}
         style={{ width: "100%", height: "100%" }}
         layout={{
           name: "dagre",
           rankDir: "BT",
-          nodeSep: 120,
-          rankSep: 220,
-          padding: 250,
+          nodeSep: 150,
+          rankSep: 200,
+          edgeSep: 20,
+          marginx: 60,
+          marginy: 60,
+          animate: true,
+          animationDuration: 600,
         }}
-        
-        
+
         stylesheet={[
           // Real nodes
           {
@@ -193,14 +197,14 @@ function App() {
             },
           },
         ]}
-        
+
         // Add some interactivity
         userZoomingEnabled={true}
         userPanningEnabled={true}
         boxSelectionEnabled={false}
         autoungrabify={false}
       />
-      
+
       {/* Enhanced Legend */}
       <div style={{
         position: "absolute",
@@ -218,7 +222,7 @@ function App() {
         <div style={{ fontWeight: "bold", marginBottom: "10px", fontSize: "16px", color: "#333" }}>
           Course Prerequisites
         </div>
-        
+
         <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
           <div style={{
             width: 20,
@@ -230,7 +234,7 @@ function App() {
           }} />
           <span>Root Course (CS135)</span>
         </div>
-        
+
         <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
           <div style={{
             width: 20,
@@ -242,7 +246,7 @@ function App() {
           }} />
           <span>Available Course</span>
         </div>
-        
+
         <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
           <div style={{
             width: 20,
@@ -254,7 +258,7 @@ function App() {
           }} />
           <span>Referenced Course</span>
         </div>
-        
+
         <div style={{ display: "flex", alignItems: "center", marginBottom: "4px" }}>
           <div style={{
             width: 30,
@@ -276,12 +280,12 @@ function App() {
           </div>
           <span>Prerequisite</span>
         </div>
-        
+
         <div style={{ fontSize: "12px", color: "#666", marginTop: "10px", fontStyle: "italic" }}>
           Root courses appear at the bottom
         </div>
       </div>
-      
+
       {/* Controls */}
       <div style={{
         position: "absolute",
