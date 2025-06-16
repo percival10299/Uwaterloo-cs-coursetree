@@ -76,5 +76,6 @@ for code in cs_courses:
         print(f"Skipped or not found: {code}")
     time.sleep(0.3)
 
-with open("cs_courses_full.json", "w") as f:
+with open("./uw-course-tree/public/courses.json", "w") as f:
     json.dump(all_data, f, indent=2, ensure_ascii=False)
+
