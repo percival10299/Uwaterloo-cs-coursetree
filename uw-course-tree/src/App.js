@@ -179,6 +179,33 @@ function App() {
         alignItems: "center",
         minWidth: 340,
       }}>
+        {highlighted.node && (
+  <div style={{
+    position: "absolute",
+    top: 54, // slightly below search bar
+    left: "50%",
+    transform: "translateX(-50%)",
+    zIndex: 20,
+    background: "rgba(255,255,255,0.98)",
+    padding: 8,
+    borderRadius: 8,
+    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+    fontSize: 15,
+    minWidth: 340,
+    textAlign: "center"
+  }}>
+    <strong>
+      {search.trim().toUpperCase()} leads to:{" "}
+    </strong>
+    {highlighted.postreqs && highlighted.postreqs.length > 0 ? (
+      highlighted.postreqs.map(code => (
+        <span key={code} style={{margin: "0 6px", fontWeight: "bold"}}>{code.toUpperCase()}</span>
+      ))
+    ) : (
+      <span>No CS postrequisites</span>
+    )}
+  </div>
+)}
         <input
           value={search}
           onChange={e => {
