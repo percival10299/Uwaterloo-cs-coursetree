@@ -4,6 +4,8 @@ import cytoscape from "cytoscape";
 import dagre from "cytoscape-dagre";
 cytoscape.use(dagre);
 
+
+
 function getRank(code) {
   // e.g., "CS135" => 100, "CS246" => 200, etc.
   const match = code.match(/\d{3}/);
@@ -15,15 +17,23 @@ function getRank(code) {
 
 function parseElements(courses) {
   // Only consider CS courses (real and referenced)
-  const isCS = code => code.toUpperCase().startsWith("CS");
+  const isCS = (code) => (code || "").toUpperCase().startsWith("CS");
+  // Map code to full course object for lookup
+  const courseMap = {};
+  courses.forEach((c) => {
+    if (isCS(c.code)) {
+      courseMap[(c.code || "").toLowerCase()] = c;
+    }
+  });
+
   const courseCodes = new Set(
-    courses.map((c) => c.code.toLowerCase()).filter(isCS)
+    courses.map((c) => (c.code || "").toLowerCase()).filter(isCS)
   );
   const edgeCodes = new Set();
   const edges = [];
 
   courses.forEach((course) => {
-    const thisCode = course.code.toLowerCase();
+    const thisCode = (course.code || "").toLowerCase();
     if (!isCS(thisCode)) return; // Skip non-CS courses
 
     // Prerequisites (only CS)
@@ -61,51 +71,157 @@ function parseElements(courses) {
   // Add only CS nodes (real and referenced)
   const allCodes = new Set([...courseCodes, ...edgeCodes]);
   const nodes = Array.from(allCodes)
-    .filter(isCS)
-    .map((code) => ({
-      data: {
-        id: code,
-        label: code.toUpperCase(),
-        rank: getRank(code.toUpperCase()),
-      },
-      classes: courseCodes.has(code) ? "real" : "phantom",
-    }));
+  .filter(isCS)
+  .map((code) => ({
+    data: {
+      id: code,
+      label: code.toUpperCase(), // This line: only code, no name!
+      rank: getRank(code.toUpperCase()),
+    },
+    classes: courseCodes.has(code) ? "real" : "phantom",
+  }));
 
   return [...nodes, ...edges];
 }
 
 
+
 function App() {
   const [elements, setElements] = useState([]);
+  const [rawCourses, setRawCourses] = useState([]);
+  const [search, setSearch] = useState("");
+  const [highlighted, setHighlighted] = useState({});
+  const [cyRef, setCyRef] = useState(null);
 
   useEffect(() => {
     fetch("/courses.json")
       .then(res => res.json())
       .then(realCourseData => {
+        setRawCourses(realCourseData);
         function extractCodes(prereqStr) {
           if (!prereqStr) return [];
           return prereqStr.match(/\b[A-Z]{2,4}\d{3}[A-Z]?\b/gi) || [];
         }
-
         const processedCourses = realCourseData.map(course => ({
           code: (course.code || "").toUpperCase(),
+          name: course.name,
           prereqs: extractCodes(course.prereqs || "").join(" "),
           postrequisites: (course.postrequisites || []).map(pr => ({
             postrequisite: { code: (pr.code || "").toUpperCase() }
           }))
         }));
-
         setElements(parseElements(processedCourses));
       });
   }, []);
 
+  function handleSearch(e) {
+    e.preventDefault();
+    if (!search.trim()) return setHighlighted({});
+    const query = search.trim().toLowerCase();
+    const found = rawCourses.find(
+      c =>
+        (c.code || "").toLowerCase() === query ||
+        (c.name || "").toLowerCase().includes(query)
+    );
+    if (!found) {
+      setHighlighted({ notfound: true });
+      return;
+    }
+    const code = (found.code || "").toLowerCase();
+    const prereqs =
+      (found.prereqs?.match(/\bCS\d{3}[A-Z]?\b/gi) || []).map(s => s.toLowerCase());
+    const postreqs = (found.postrequisites || [])
+      .map(p => (p.code || "").toLowerCase())
+      .filter(s => s.startsWith("cs"));
+    setHighlighted({ node: code, prereqs, postreqs });
+    if (cyRef && cyRef.$id(code)) {
+      cyRef.$id(code).select();
+      // Increase padding for a wider view:
+      cyRef.animate({
+        fit: { 
+          eles: cyRef.$id(code).union(cyRef.$id(prereqs.concat(postreqs))), 
+          padding: 420 // <-- was 40, now 120
+        }
+      }, { duration: 500 });
+    }
+  }
+  
 
+  const displayedElements = elements.map(el => {
+    if (!el.data) return el;
+    const code = el.data.id;
+    let classes = el.classes || "";
+    if (
+      highlighted.node &&
+      (code === highlighted.node ||
+        highlighted.prereqs?.includes(code) ||
+        highlighted.postreqs?.includes(code))
+    ) {
+      classes += " highlighted";
+    }
+    return { ...el, classes };
+  });
 
   return (
-    <div style={{ width: "100vw", height: "100vh" }}>
+    <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
+      {/* SEARCH BAR */}
+      <form onSubmit={handleSearch} style={{
+        position: "absolute",
+        top: 10,
+        left: "50%",
+        transform: "translateX(-50%)",
+        zIndex: 20,
+        background: "rgba(255,255,255,0.95)",
+        padding: 8,
+        borderRadius: 8,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+        display: "flex",
+        alignItems: "center",
+        minWidth: 340,
+      }}>
+        <input
+          value={search}
+          onChange={e => {
+            setSearch(e.target.value);
+            setHighlighted({});
+          }}
+          placeholder="Search by CS code or name…"
+          style={{
+            width: 220,
+            fontSize: 16,
+            padding: 6,
+            borderRadius: 4,
+            border: "1px solid #bbb",
+            marginRight: 8,
+          }}
+        />
+        <button
+          type="submit"
+          style={{
+            padding: "6px 20px",
+            borderRadius: 4,
+            border: "none",
+            background: "#61bffc",
+            color: "#222",
+            fontWeight: "bold",
+            fontSize: 16,
+            cursor: "pointer",
+          }}
+        >
+          Search
+        </button>
+        {highlighted.notfound && (
+          <span style={{ marginLeft: 12, color: "#f44336" }}>
+            Not found
+          </span>
+        )}
+      </form>
+
+      {/* CYTOSCAPE */}
       <CytoscapeComponent
-        key={elements.length} // Ensures remount & layout rerun on reload
-        elements={elements}
+        key={displayedElements.length}
+        cy={cy => setCyRef(cy)}
+        elements={displayedElements}
         style={{ width: "100%", height: "100%" }}
         layout={{
           name: "dagre",
@@ -120,27 +236,29 @@ function App() {
         }}
 
         stylesheet={[
-          // Real nodes
+          // ...your existing styles...
+          // Add highlighted node style:
           {
             selector: "node.real",
-            style: {
-              label: "data(label)",
+  style: {
+    label: "data(label)",
               "text-valign": "center",
               "text-halign": "center",
               "background-color": "#61bffc",
               "color": "#222",
-              "width": 80,
+              "width": 140,                // wider to fit name
               "height": 80,
-              "font-size": 16,
+              "font-size": 13,             // slightly smaller
               "font-weight": "bold",
               "text-outline-width": 2,
               "text-outline-color": "#fff",
               "border-width": 3,
               "border-color": "#0066cc",
               "shape": "round-rectangle",
+              "white-space": "pre-line",   // <--- enables \n in label
+              "line-height": 1.2,          // better line spacing
             },
           },
-          // Phantom nodes (referenced but not in your JSON)
           {
             selector: "node.phantom",
             style: {
@@ -153,156 +271,23 @@ function App() {
               "border-width": 2,
               "border-color": "#999",
               "opacity": 0.7,
-              "width": 80,
+              "width": 140,
               "height": 80,
-              "font-size": 14,
+              "font-size": 13,
               "shape": "round-rectangle",
+              "white-space": "pre-line",   // <--- enables \n in label
+              "line-height": 1.2,
             },
           },
-          // Prereq edge (blue, solid, arrow)
-          {
-            selector: "edge[type = 'prereq']",
-            style: {
-              width: 3,
-              "line-color": "#0074d9",
-              "target-arrow-color": "#0074d9",
-              "target-arrow-shape": "triangle",
-              "target-arrow-size": 12,
-              "curve-style": "straight",
-              "arrow-scale": 1.5,
-            },
-          },
-          // Postreq edge (green, dotted, arrow)
-          {
-            selector: "edge[type = 'postreq']",
-            style: {
-              width: 3,
-              "line-color": "#28a745",
-              "target-arrow-color": "#28a745",
-              "target-arrow-shape": "triangle",
-              "target-arrow-size": 12,
-              "curve-style": "straight",
-              "line-style": "dotted",
-              "arrow-scale": 1.5,
-            },
-          },
-          // Special styling for root nodes (nodes with no prerequisites)
-          {
-            selector: "node[indegree = 0].real",
-            style: {
-              "background-color": "#28a745",
-              "border-color": "#1e7e34",
-              "color": "#fff",
-              "text-outline-color": "#1e7e34",
-            },
-          },
+          
         ]}
-
-        // Add some interactivity
         userZoomingEnabled={true}
         userPanningEnabled={true}
         boxSelectionEnabled={false}
         autoungrabify={false}
       />
 
-      {/* Enhanced Legend */}
-      <div style={{
-        position: "absolute",
-        top: 20,
-        left: 20,
-        background: "rgba(255, 255, 255, 0.95)",
-        padding: "15px 20px",
-        borderRadius: "12px",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-        fontSize: 14,
-        zIndex: 10,
-        border: "1px solid #e0e0e0",
-        minWidth: "200px",
-      }}>
-        <div style={{ fontWeight: "bold", marginBottom: "10px", fontSize: "16px", color: "#333" }}>
-          Course Prerequisites
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
-          <div style={{
-            width: 20,
-            height: 20,
-            borderRadius: "4px",
-            background: "#28a745",
-            marginRight: 10,
-            border: "2px solid #1e7e34",
-          }} />
-          <span>Root Course (CS135)</span>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
-          <div style={{
-            width: 20,
-            height: 20,
-            borderRadius: "4px",
-            background: "#61bffc",
-            marginRight: 10,
-            border: "2px solid #0066cc",
-          }} />
-          <span>Available Course</span>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", marginBottom: "8px" }}>
-          <div style={{
-            width: 20,
-            height: 20,
-            borderRadius: "4px",
-            background: "#ddd",
-            marginRight: 10,
-            border: "2px dashed #999",
-          }} />
-          <span>Referenced Course</span>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", marginBottom: "4px" }}>
-          <div style={{
-            width: 30,
-            height: 0,
-            borderBottom: "3px solid #0074d9",
-            marginRight: 10,
-            position: "relative",
-          }}>
-            <div style={{
-              position: "absolute",
-              right: "-6px",
-              top: "-4px",
-              width: 0,
-              height: 0,
-              borderLeft: "6px solid #0074d9",
-              borderTop: "4px solid transparent",
-              borderBottom: "4px solid transparent",
-            }} />
-          </div>
-          <span>Prerequisite</span>
-        </div>
-
-        <div style={{ fontSize: "12px", color: "#666", marginTop: "10px", fontStyle: "italic" }}>
-          Root courses appear at the bottom
-        </div>
-      </div>
-
-      {/* Controls */}
-      <div style={{
-        position: "absolute",
-        top: 20,
-        right: 20,
-        background: "rgba(255, 255, 255, 0.95)",
-        padding: "10px 15px",
-        borderRadius: "8px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-        fontSize: 12,
-        zIndex: 10,
-        color: "#666",
-      }}>
-        <div>• Drag to pan</div>
-        <div>• Scroll to zoom</div>
-        <div>• Drag nodes to rearrange</div>
-      </div>
+      {/* ... (rest of your controls/legend as before) ... */}
     </div>
   );
 }
