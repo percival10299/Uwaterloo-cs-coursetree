@@ -10,10 +10,9 @@ models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI()
 
-# <--- ADD THIS BLOCK TO FIX THE CONNECTION --->
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins (like localhost:3000)
+    allow_origins=["*"], # This is the "handshake" your browser is looking for
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
