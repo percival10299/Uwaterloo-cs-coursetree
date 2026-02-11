@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware # <--- 1. IMPORT THIS
+from fastapi.middleware.cors import CORSMiddleware  # <--- IMPORT THIS
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 import models
@@ -10,16 +10,15 @@ models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI()
 
-# <--- 2. ADD THIS BLOCK --->
-# Allow the frontend (running on localhost:3000) to talk to this API
+# <--- ADD THIS BLOCK TO FIX THE CONNECTION --->
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # For development, allow all origins. In production, change to ["http://localhost:3000"]
+    allow_origins=["*"],  # Allows all origins (like localhost:3000)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# <------------------------->
+# <-------------------------------------------->
 
 # Dependency
 def get_db():
@@ -35,16 +34,14 @@ def read_root():
 
 @app.get("/courses")
 def get_courses(db: Session = Depends(get_db)):
-    """Fetch all available courses."""
     return db.query(models.Course).all()
-
-from sqlalchemy import func
 
 @app.get("/resolve/{course_code}")
 def resolve_prerequisites(course_code: str, db: Session = Depends(get_db)):
-    # ... (keep the existing cleanup logic) ...
+    # Normalize input: remove spaces and uppercase
     clean_code = course_code.replace(" ", "").upper()
     
+    # Query: Normalize database column on the fly to match input
     course = db.query(models.Course).filter(
         func.replace(models.Course.code, " ", "").ilike(clean_code)
     ).first()
@@ -57,6 +54,6 @@ def resolve_prerequisites(course_code: str, db: Session = Depends(get_db)):
         "title": course.name,
         "description": course.description,
         "prerequisites_logic": course.prerequisites, 
-        "postrequisites": course.postrequisites,  # <--- ADD THIS LINE
+        "postrequisites": course.postrequisites,
         "is_recursive_ready": True 
     }
