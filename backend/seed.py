@@ -42,7 +42,8 @@ def seed_data():
                 code=raw_code.upper(),
                 name=item.get("name"),
                 description=item.get("description", ""),
-                prerequisites=item.get("prereqs", {}) 
+                prerequisites=item.get("prereqs", {}),
+                postrequisites=item.get("postrequisites", [])
             )
             
             db.add(course)
