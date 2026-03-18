@@ -4,7 +4,8 @@ from sqlalchemy.orm import sessionmaker
 import os
 
 # Your URL is fine, it defaults to the Docker network but can be overridden
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://user:password@db:5432/course_planner")
+# In database.py
+DATABASE_URL = "postgresql://haronwang@localhost:5432/course_planner"
 
 # create_engine is lazy; it will NOT connect immediately
 engine = create_engine(DATABASE_URL)

@@ -1,49 +1,37 @@
 from fastapi import FastAPI, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware  # <--- IMPORT THIS
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import func, text
 from database import get_db
-import models
-
+from services import build_prereq_tree  # We will create this next
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # This is the "handshake" your browser is looking for
+    allow_origins=["http://localhost:3000"], # Your React URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# <-------------------------------------------->
-
 
 @app.get("/")
-def read_root():
+def health_check():
     return {"status": "Course Planning Intelligence Engine is Online!"}
 
-@app.get("/courses")
-def get_courses(db: Session = Depends(get_db)):
-    return db.query(models.Course).all()
-
-@app.get("/resolve/{course_code}")
-def resolve_prerequisites(course_code: str, db: Session = Depends(get_db)):
-    # Normalize input: remove spaces and uppercase
+@app.get("/api/tree/{course_code}")
+def get_course_tree(course_code: str, db: Session = Depends(get_db)):
+    """
+    The core endpoint: Resolves a recursive tree of prerequisites.
+    """
+    # Normalize input for robust searching
     clean_code = course_code.replace(" ", "").upper()
     
-    # Query: Normalize database column on the fly to match input
-    course = db.query(models.Course).filter(
-        func.replace(models.Course.code, " ", "").ilike(clean_code)
-    ).first()
+    # Start the recursive engine
+    # We pass the db session and the starting code
+    tree = build_prereq_tree(db, clean_code)
+    
+    if not tree:
+        raise HTTPException(status_code=404, detail=f"Course {course_code} not found")
 
-    if not course:
-        raise HTTPException(status_code=404, detail="Course not found")
-
-    return {
-        "course": course.code,
-        "title": course.name,
-        "description": course.description,
-        "prerequisites_logic": course.prerequisites, 
-        "postrequisites": course.postrequisites,
-        "is_recursive_ready": True 
-    }
+    return tree
