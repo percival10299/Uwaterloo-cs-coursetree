@@ -12,39 +12,44 @@ export default function App() {
 
   // --- The Recursive Flattener ---
   // This function turns nested JSON into React Flow Nodes/Edges
-  const flattenTree = (node, x = 0, y = 0, level = 0, resultNodes = [], resultEdges = []) => {
-    if (!node) return { resultNodes, resultEdges };
+  const flattenTree = (node, x = 0, y = 0, level = 0, resultNodes = [], resultEdges = [], visited = new Set()) => {
+    if (!node || visited.has(node.code)) return { resultNodes, resultEdges };
+    visited.add(node.code);
 
-    const nodeId = node.code;
-    
-    // 1. Add current course as a node
     resultNodes.push({
-      id: nodeId,
+      id: node.code,
       data: { label: `${node.code}: ${node.name}` },
       position: { x: x, y: y },
-      style: { background: level === 0 ? '#ffcc00' : '#fff', width: 150 },
+      style: {
+        background: level === 0 ? '#ffcc00' : level === 1 ? '#a8d8ea' : '#fff',
+        width: 180,
+        fontSize: 12,
+        borderRadius: 8,
+      },
     });
 
-    // 2. If it has prerequisites, recurse through them
     if (node.prerequisites) {
-      Object.entries(node.prerequisites).forEach(([gate, items], gateIndex) => {
-        items.forEach((child, childIndex) => {
-          // Calculate position: Move LEFT (negative x) for prerequisites
-          // Spread them out vertically (y)
-          const nextX = x - 250;
-          const nextY = y + (childIndex - (items.length - 1) / 2) * 150;
+      const allChildren = [
+        ...(node.prerequisites.all_of || []),
+        ...(node.prerequisites.one_of || []),
+      ];
 
-          // Add an edge from the prerequisite (child) to the current course (node)
-          resultEdges.push({
-            id: `e-${child.code}-${nodeId}`,
-            source: child.code,
-            target: nodeId,
-            animated: true,
-            label: gate === 'one_of' ? 'OR' : ''
-          });
+      allChildren.forEach((child, i) => {
+        // ✅ SWAPPED: y grows downward (level), x spreads horizontally
+        const nextX = x + (i - (allChildren.length - 1) / 2) * 220;
+        const nextY = y + 160;
+        const isOneOf = (node.prerequisites.one_of || []).includes(child);
 
-          flattenTree(child, nextX, nextY, level + 1, resultNodes, resultEdges);
+        resultEdges.push({
+          id: `e-${child.code}-${node.code}`,
+          source: child.code,
+          target: node.code,
+          animated: true,
+          label: isOneOf ? 'OR' : '',
+          style: { stroke: isOneOf ? '#f6a623' : '#555' },
         });
+
+        flattenTree(child, nextX, nextY, level + 1, resultNodes, resultEdges, visited);
       });
     }
 
