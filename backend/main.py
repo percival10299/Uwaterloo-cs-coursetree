@@ -4,12 +4,14 @@ from sqlalchemy.orm import Session
 from database import get_db
 from services import build_prereq_tree  # We will create this next
 from fastapi.middleware.cors import CORSMiddleware
+import models
+from database import engine
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"], # Your React URL
+    allow_origins=["*"], # For debugging, allow everything temporarily
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

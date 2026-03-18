@@ -5,7 +5,7 @@ import os
 
 # Your URL is fine, it defaults to the Docker network but can be overridden
 # In database.py
-DATABASE_URL = "postgresql://haronwang@localhost:5432/course_planner"
+DATABASE_URL = "postgresql://haronwang@localhost:5432/postgres"
 
 # create_engine is lazy; it will NOT connect immediately
 engine = create_engine(DATABASE_URL)

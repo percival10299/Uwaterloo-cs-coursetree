@@ -54,7 +54,7 @@ export default function App() {
   const handleSearch = async () => {
     try {
       // Ensure this points to your new recursive endpoint
-      const response = await fetch(`http://localhost:8000/api/tree/${searchTerm}`);
+      const response = await fetch(`http://127.0.0.1:8000/api/tree/${searchTerm}`);
       if (!response.ok) throw new Error('Course not found');
       
       const treeData = await response.json();
