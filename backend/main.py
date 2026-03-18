@@ -4,10 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, text
 from database import get_db
 import models
-import database
 
-# Initialize database
-models.Base.metadata.create_all(bind=database.engine)
 
 app = FastAPI()
 
@@ -23,7 +20,7 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"message": "Course Planning Intelligence Engine is Online!"}
+    return {"status": "Course Planning Intelligence Engine is Online!"}
 
 @app.get("/courses")
 def get_courses(db: Session = Depends(get_db)):
