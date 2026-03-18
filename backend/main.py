@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware  # <--- IMPORT THIS
 from sqlalchemy.orm import Session
 from sqlalchemy import func, text
+from database import get_db
 import models
 import database
 
@@ -19,13 +20,6 @@ app.add_middleware(
 )
 # <-------------------------------------------->
 
-# Dependency
-def get_db():
-    db = database.SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 @app.get("/")
 def read_root():
