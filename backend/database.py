@@ -1,19 +1,19 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-import os
 
-# Your URL is fine, it defaults to the Docker network but can be overridden
-# In database.py
-DATABASE_URL = "postgresql://haronwang@localhost:5432/postgres"
+# 1. Look for 'DATABASE_URL' in the system environment (set by Docker)
+# 2. If it's not there, fall back to localhost (for local testing)
+DATABASE_URL = os.getenv(
+    "DATABASE_URL", 
+    "postgresql://user:password@localhost:5432/coursetree"
+)
 
-# create_engine is lazy; it will NOT connect immediately
 engine = create_engine(DATABASE_URL)
-
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# This is the Dependency Injection function for your FastAPI endpoints
 def get_db():
     db = SessionLocal()
     try:
