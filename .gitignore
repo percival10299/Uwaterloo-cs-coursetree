@@ -4,6 +4,7 @@ backend/__pycache__/
 backend/.pytest_cache/
 .pytest_cache/
 *.py[cod]
+.env
 
 # OS specific files
 .DS_Store
